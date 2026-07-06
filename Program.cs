@@ -25,9 +25,19 @@ app.MapPost("/api/cart/{customerId}/items", async (string customerId, [FromBody]
         cartRegistry[customerId] = pid;
     }
 
-    // Asynchronously request the actor to mutate state
-    var result = await context.RequestAsync<CartState>(pid, new AddItemToCart(customerId, input.ItemId, input.Quantity));
-    return Results.Ok(result);
+    try
+    {
+        var result = await context.RequestAsync<CartState>(pid, new AddItemToCart(customerId, input.ItemId, input.Quantity));
+        return Results.Ok(result);
+    }
+    catch (DeadLetterException)
+    {
+        // Handle case where actor passivated right when request arrived
+        pid = context.SpawnNamed(cartProps, $"cart-{customerId}");
+        cartRegistry[customerId] = pid;
+        var result = await context.RequestAsync<CartState>(pid, new AddItemToCart(customerId, input.ItemId, input.Quantity));
+        return Results.Ok(result);
+    }
 });
 
 app.MapGet("/api/cart/{customerId}", async (string customerId) =>
@@ -37,8 +47,15 @@ app.MapGet("/api/cart/{customerId}", async (string customerId) =>
         return Results.NotFound($"No active session for customer {customerId}");
     }
 
-    var result = await context.RequestAsync<CartState>(pid, new GetCartContent(customerId));
-    return Results.Ok(result);
+    try
+    {
+        var result = await context.RequestAsync<CartState>(pid, new GetCartContent(customerId));
+        return Results.Ok(result);
+    }
+    catch (DeadLetterException)
+    {
+        return Results.NotFound(new { message = $"Cart for {customerId} has been passivated due to inactivity." });
+    }
 });
 
 app.Run();

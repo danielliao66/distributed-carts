@@ -15,3 +15,8 @@ curl http://localhost:5000/api/cart/alice456
 curl -X POST http://localhost:5000/api/cart/bob789/items \
 -H "Content-Type: application/json" \
 -d '{"itemId": "keyboard-mechanical", "quantity": 1}'
+
+# Activate the Actor
+curl -X POST http://localhost:5000/api/cart/charlie999/items \
+-H "Content-Type: application/json" \
+-d '{"itemId": "headphones", "quantity": 1}'
